@@ -1,5 +1,5 @@
 [package]
-name = "js-lib"
+name = "crisp-zk"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

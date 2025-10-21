@@ -1,12 +1,13 @@
 {
-  "name": "crisp-zk-witness-example",
+  "name": "crisp-zk-witness-scripts",
   "type": "module",
   "version": "0.1.0",
-  "description": "Example usage of the crisp-zk-witness-generator",
-  "main": "index.js",
+  "description": "Scripts for the crisp-zk-witness-generator",
+  "main": "test.js",
   "scripts": {
-    "build": "wasm-pack build ../crates/js-lib",
-    "test": "pnpm run build && node index.js"
+    "build": "wasm-pack build ../crates/js-lib --target web --release",
+    "test": "pnpm run build && node test.js",
+    "publish-package": "pnpm run build && cd ../crates/js-lib/pkg && npm publish"
   },
   "keywords": [
     "crisp",

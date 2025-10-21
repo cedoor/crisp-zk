@@ -1,4 +1,4 @@
-import { JsWitnessGenerator } from "../crates/js-lib/pkg/js_lib.js";
+import { JsWitnessGenerator } from "../crates/js-lib/pkg/crisp-zk-witness.js";
 import { UltraHonkBackend } from '@aztec/bb.js';
 import circuitJson from './crisp-circuit.json' with { type: 'json' };
 import { Noir } from '@noir-lang/noir_js';

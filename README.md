@@ -31,13 +31,13 @@ cargo build
 ### Build the JavaScript library with WASM bindings
 
 ```bash
-cd crates/js-lib
-wasm-pack build
+cd js-scripts
+pnpm build
 ```
 
 ## Testing
 
-### Run all tests
+### Run Rust tests
 
 ```bash
 cargo test
@@ -48,6 +48,13 @@ cargo test
 ```bash
 cargo test -p crisp-zk-witness
 cargo test -p js-lib
+```
+
+### Run tests for the final JS bundle
+
+```bash
+cd js-scripts
+pnpm test
 ```
 
 ## Usage
@@ -68,20 +75,16 @@ The JavaScript library provides WASM bindings for witness generation. Here's how
 
 #### Installation
 
-```bash
-# Build the WASM library
-cd crates/js-lib
-wasm-pack build
+Install the library.
 
-# Or use the example setup
-cd example
-pnpm install
+```bash
+pnpm install crisp-zk
 ```
 
 #### Basic Usage
 
 ```javascript
-import { JsWitnessGenerator } from "./pkg/js_lib.js";
+import { JsWitnessGenerator } from "crisp-zk";
 
 // Create a new witness generator instance
 const generator = new JsWitnessGenerator();
@@ -93,94 +96,4 @@ console.log("Public key:", publicKey);
 // Generate a witness with the public key and vote (0 or 1)
 const witness = await generator.generateWitness(publicKey, 1);
 console.log("Witness:", witness);
-```
-
-#### API Reference
-
-##### `JsWitnessGenerator`
-
-The main class for generating witnesses in JavaScript.
-
-**Constructor:**
-
-```javascript
-const generator = new JsWitnessGenerator();
-```
-
-**Methods:**
-
-- `generatePublicKey()`: `Promise<string>`
-
-  - Generates a new public key
-  - Returns a string representation of the public key
-
-- `generateWitness(publicKey: string, vote: number)`: `Promise<any>`
-
-  - Generates a witness for the given public key and vote
-  - `publicKey`: The public key string (from `generatePublicKey()`)
-  - `vote`: The vote value (0 or 1)
-  - Returns a JavaScript object containing the witness data
-
-- `version()`: `string` (static method)
-  - Returns the version of the library
-  - Usage: `JsWitnessGenerator.version()`
-
-#### Complete Example with Noir Integration
-
-```javascript
-import { JsWitnessGenerator } from "./pkg/js_lib.js";
-import { UltraHonkBackend } from '@aztec/bb.js';
-import circuitJson from './crisp-circuit.json' with { type: 'json' };
-import { Noir } from '@noir-lang/noir_js';
-
-// Initialize the witness generator
-const generator = new JsWitnessGenerator();
-
-// Generate public key and witness
-const publicKey = await generator.generatePublicKey();
-const proverInputs = await generator.generateWitness(publicKey, 1);
-
-// Set up Noir and backend
-const noir = new Noir(circuitJson);
-const backend = new UltraHonkBackend(circuitJson.bytecode);
-
-// Execute the circuit and generate proof
-const { witness } = await noir.execute(proverInputs);
-
-// Measure proof generation time
-const startTime = performance.now();
-await backend.generateProof(witness);
-const endTime = performance.now();
-
-console.log(`Proof generated in ${(endTime - startTime).toFixed(2)}ms`);
-
-// Clean up
-await backend.destroy();
-```
-
-#### Error Handling
-
-The JavaScript API returns promises that can reject with error messages:
-
-```javascript
-try {
-  const generator = new JsWitnessGenerator();
-  const publicKey = await generator.generatePublicKey();
-  const witness = await generator.generateWitness(publicKey, 1);
-} catch (error) {
-  console.error("Error generating witness:", error);
-}
-```
-
-## Development
-
-This is a workspace project. You can work on individual crates or the entire workspace:
-
-```bash
-# Work on the entire workspace
-cargo check
-
-# Work on specific crate
-cargo check -p crisp-zk-witness
-cargo check -p js-lib
 ```
