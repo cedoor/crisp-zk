@@ -58,19 +58,118 @@ cargo test -p js-lib
 use crisp_zk_witness::WitnessGenerator;
 
 let generator = WitnessGenerator::new();
-let witness = generator.generate_witness("your input")?;
+let public_key = generator.generate_public_key()?;
+let witness = generator.generate_witness(&public_key, 1)?;
 ```
 
 ### JavaScript
 
+The JavaScript library provides WASM bindings for witness generation. Here's how to use it:
+
+#### Installation
+
+```bash
+# Build the WASM library
+cd crates/js-lib
+wasm-pack build
+
+# Or use the example setup
+cd example
+pnpm install
+```
+
+#### Basic Usage
+
 ```javascript
-import init, { JsWitnessGenerator } from "./pkg/js_lib.js";
+import { JsWitnessGenerator } from "./pkg/js_lib.js";
 
-await init();
-
+// Create a new witness generator instance
 const generator = new JsWitnessGenerator();
-const witness = generator.generate_witness("your input");
-console.log(witness);
+
+// Generate a public key
+const publicKey = await generator.generatePublicKey();
+console.log("Public key:", publicKey);
+
+// Generate a witness with the public key and vote (0 or 1)
+const witness = await generator.generateWitness(publicKey, 1);
+console.log("Witness:", witness);
+```
+
+#### API Reference
+
+##### `JsWitnessGenerator`
+
+The main class for generating witnesses in JavaScript.
+
+**Constructor:**
+
+```javascript
+const generator = new JsWitnessGenerator();
+```
+
+**Methods:**
+
+- `generatePublicKey()`: `Promise<string>`
+
+  - Generates a new public key
+  - Returns a string representation of the public key
+
+- `generateWitness(publicKey: string, vote: number)`: `Promise<any>`
+
+  - Generates a witness for the given public key and vote
+  - `publicKey`: The public key string (from `generatePublicKey()`)
+  - `vote`: The vote value (0 or 1)
+  - Returns a JavaScript object containing the witness data
+
+- `version()`: `string` (static method)
+  - Returns the version of the library
+  - Usage: `JsWitnessGenerator.version()`
+
+#### Complete Example with Noir Integration
+
+```javascript
+import { JsWitnessGenerator } from "./pkg/js_lib.js";
+import { UltraHonkBackend } from '@aztec/bb.js';
+import circuitJson from './crisp-circuit.json' with { type: 'json' };
+import { Noir } from '@noir-lang/noir_js';
+
+// Initialize the witness generator
+const generator = new JsWitnessGenerator();
+
+// Generate public key and witness
+const publicKey = await generator.generatePublicKey();
+const proverInputs = await generator.generateWitness(publicKey, 1);
+
+// Set up Noir and backend
+const noir = new Noir(circuitJson);
+const backend = new UltraHonkBackend(circuitJson.bytecode);
+
+// Execute the circuit and generate proof
+const { witness } = await noir.execute(proverInputs);
+
+// Measure proof generation time
+const startTime = performance.now();
+await backend.generateProof(witness);
+const endTime = performance.now();
+
+console.log(`Proof generated in ${(endTime - startTime).toFixed(2)}ms`);
+
+// Clean up
+await backend.destroy();
+```
+
+#### Error Handling
+
+The JavaScript API returns promises that can reject with error messages:
+
+```javascript
+try {
+  const generator = new JsWitnessGenerator();
+  const publicKey = await generator.generatePublicKey();
+  const witness = await generator.generateWitness(publicKey, 1);
+} catch (error) {
+  console.error("Error generating witness:", error);
+}
 ```
 
 ## Development
