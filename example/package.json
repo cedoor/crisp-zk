@@ -1,0 +1,25 @@
+{
+  "name": "crisp-zk-witness-example",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Example usage of the crisp-zk-witness-generator",
+  "main": "index.js",
+  "scripts": {
+    "build": "wasm-pack build ../crates/js-lib",
+    "test": "pnpm run build && node index.js"
+  },
+  "keywords": [
+    "crisp",
+    "zk",
+    "witness",
+    "generator",
+    "wasm"
+  ],
+  "author": "Cedoor <me@cedoor.dev>",
+  "license": "MIT",
+  "packageManager": "pnpm@10.14.0",
+  "dependencies": {
+    "@aztec/bb.js": "0.87.0",
+    "@noir-lang/noir_js": "1.0.0-beta.11"
+  }
+}

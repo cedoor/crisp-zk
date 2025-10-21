@@ -1,0 +1,159 @@
+//! Core witness generation library
+//!
+//! This crate contains the main logic for generating crisp witnesses.
+
+use fhe::bfv::PublicKey;
+use fhe::bfv::SecretKey;
+use fhe::bfv::{BfvParameters, BfvParametersBuilder};
+use fhe::bfv::{Encoding, Plaintext};
+use fhe_traits::{DeserializeParametrized, FheEncoder, Serialize};
+use greco::bounds::GrecoBounds;
+use greco::vectors::GrecoVectors;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
+use std::sync::Arc;
+
+mod serialization;
+use serialization::{construct_witness, serialize_witness_to_json};
+
+pub struct WitnessGenerator {
+    bfv_params: Arc<BfvParameters>,
+}
+
+impl WitnessGenerator {
+    pub fn new() -> Self {
+        Self::with_defaults()
+    }
+
+    pub fn with_params(degree: usize, plaintext_modulus: u64, moduli: &[u64]) -> Self {
+        let bfv_params = BfvParametersBuilder::new()
+            .set_degree(degree)
+            .set_plaintext_modulus(plaintext_modulus)
+            .set_moduli(moduli)
+            .build_arc()
+            .unwrap();
+        Self { bfv_params }
+    }
+
+    fn with_defaults() -> Self {
+        let degree = 2048;
+        let plaintext_modulus = 1032193;
+        let moduli = [0x3FFFFFFF000001];
+
+        Self::with_params(degree, plaintext_modulus, &moduli)
+    }
+
+    pub fn generate_witness(&self, public_key: &str, vote: u8) -> Result<String, String> {
+        let (crypto_params, bounds) = GrecoBounds::compute(&self.bfv_params, 0)
+            .map_err(|e| format!("Failed to compute bounds: {}", e))?;
+
+        // Deserialize the provided public key
+        let pk = PublicKey::from_bytes(
+            &hex::decode(public_key).map_err(|e| format!("Failed to decode public key: {}", e))?,
+            &self.bfv_params,
+        )
+        .map_err(|e| format!("Failed to deserialize public key: {}", e))?;
+
+        // Create a sample plaintext consistent with the GRECO sample generator
+        // All coefficients are 3, and the first coefficient represents the vote
+        let mut rng = StdRng::seed_from_u64(0);
+        let mut message_data = vec![3u64; self.bfv_params.degree()];
+
+        // Set vote value (0 or 1) in the first coefficient
+        message_data[0] = if vote == 1 { 1 } else { 0 };
+
+        let pt = Plaintext::try_encode(&message_data, Encoding::poly(), &self.bfv_params)
+            .map_err(|e| format!("Failed to encode plaintext: {}", e))?;
+
+        // Encrypt using the provided public key to ensure ciphertext matches the key
+        let (ct, u_rns, e0_rns, e1_rns) = pk
+            .try_encrypt_extended(&pt, &mut rng)
+            .map_err(|e| format!("Failed to encrypt plaintext: {}", e))?;
+
+        let vectors =
+            GrecoVectors::compute(&pt, &u_rns, &e0_rns, &e1_rns, &ct, &pk, &self.bfv_params)
+                .map_err(|e| format!("Failed to compute vectors: {}", e))?;
+
+        let vectors_standard = vectors.standard_form();
+
+        let witness = construct_witness(&crypto_params, &bounds, &vectors_standard);
+        serialize_witness_to_json(&witness)
+    }
+
+    pub fn generate_public_key(&self) -> Result<String, String> {
+        let mut rng = StdRng::seed_from_u64(0);
+
+        // Generate keys
+        let sk = SecretKey::random(&self.bfv_params, &mut rng);
+        let pk = PublicKey::new(&sk, &mut rng);
+
+        Ok(hex::encode(pk.to_bytes()))
+    }
+
+    pub fn get_bfv_params(&self) -> Arc<BfvParameters> {
+        self.bfv_params.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_witness_generation_with_defaults() {
+        let generator = WitnessGenerator::new();
+        let public_key = generator
+            .generate_public_key()
+            .expect("failed to generate public key");
+        let result = generator.generate_witness(&public_key, 1);
+
+        assert!(result.is_ok());
+        let json_output = result.unwrap();
+        // Verify it's valid JSON and contains expected fields
+        assert!(json_output.contains("params"));
+        assert!(json_output.contains("pk0is"));
+        assert!(json_output.contains("crypto"));
+    }
+
+    #[test]
+    fn test_witness_generation_with_custom_params() {
+        let generator = WitnessGenerator::with_params(2048, 1032193, &[0x3FFFFFFF000001]);
+        let public_key = generator
+            .generate_public_key()
+            .expect("failed to generate public key");
+        let result = generator.generate_witness(&public_key, 1);
+
+        assert!(result.is_ok());
+        let json_output = result.unwrap();
+        // Verify it's valid JSON and contains expected fields
+        assert!(json_output.contains("params"));
+        assert!(json_output.contains("pk0is"));
+        assert!(json_output.contains("crypto"));
+    }
+
+    #[test]
+    fn test_witness_generation_with_vote_0() {
+        let generator = WitnessGenerator::new();
+        let public_key = generator
+            .generate_public_key()
+            .expect("failed to generate public key");
+        let result = generator.generate_witness(&public_key, 0);
+
+        assert!(result.is_ok());
+        let json_output = result.unwrap();
+        // Verify it's valid JSON and contains expected fields
+        assert!(json_output.contains("params"));
+        assert!(json_output.contains("pk0is"));
+        assert!(json_output.contains("crypto"));
+    }
+
+    #[test]
+    fn test_get_bfv_params() {
+        let generator = WitnessGenerator::new();
+        let bfv_params = generator.get_bfv_params();
+
+        assert!(bfv_params.degree() == 2048);
+        assert!(bfv_params.plaintext() == 1032193 as u64);
+        assert!(bfv_params.moduli() == &[0x3FFFFFFF000001]);
+    }
+}

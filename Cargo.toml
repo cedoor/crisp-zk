@@ -1,0 +1,14 @@
+[workspace]
+members = [
+    "crates/generator",
+    "crates/js-lib"
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Cedoor <me@cedoor.dev>"]
+license = "MIT"
+repository = "https://github.com/cedoor/crisp-zk-witness"
+description = "A Rust monorepo for CRISP ZK witness generation with WASM bindings"
