@@ -1,36 +1,36 @@
-//! JavaScript library with WASM bindings for witness generation
+//! JavaScript library with WASM bindings for crisp inputs generation
 //!
-//! This crate provides JavaScript bindings for the witness generator using WASM.
+//! This crate provides JavaScript bindings for the crisp inputs generator using WASM.
 
-use crisp_zk_witness::WitnessGenerator;
+use crisp_zk_inputs::CrispZKInputsGenerator;
 use js_sys;
 use wasm_bindgen::prelude::*;
 
-/// JavaScript-compatible witness generator
+/// JavaScript-compatible crisp inputs generator
 #[wasm_bindgen]
-pub struct JsWitnessGenerator {
-    generator: WitnessGenerator,
+pub struct ZKInputsGenerator {
+    generator: CrispZKInputsGenerator,
 }
 
 #[wasm_bindgen]
-impl JsWitnessGenerator {
-    /// Create a new JavaScript witness generator
+impl ZKInputsGenerator {
+    /// Create a new JavaScript crisp inputs generator
     #[wasm_bindgen(constructor)]
-    pub fn new() -> JsWitnessGenerator {
-        JsWitnessGenerator {
-            generator: WitnessGenerator::new(),
+    pub fn new() -> ZKInputsGenerator {
+        ZKInputsGenerator {
+            generator: CrispZKInputsGenerator::new(),
         }
     }
 
-    /// Generate a witness from JavaScript
-    #[wasm_bindgen(js_name = "generateWitness")]
-    pub fn generate_witness(&self, public_key: &str, vote: u8) -> Result<JsValue, JsValue> {
-        match self.generator.generate_witness(public_key, vote) {
-            Ok(witness_json) => {
+    /// Generate a crisp inputs from JavaScript
+    #[wasm_bindgen(js_name = "generateInputs")]
+    pub fn generate_inputs(&self, public_key: &str, vote: u8) -> Result<JsValue, JsValue> {
+        match self.generator.generate_inputs(public_key, vote) {
+            Ok(inputs_json) => {
                 // Parse the JSON string and return as JsValue
-                match js_sys::JSON::parse(&witness_json) {
+                match js_sys::JSON::parse(&inputs_json) {
                     Ok(js_value) => Ok(js_value),
-                    Err(_) => Err(JsValue::from_str("Failed to parse witness JSON")),
+                    Err(_) => Err(JsValue::from_str("Failed to parse inputs JSON")),
                 }
             }
             Err(e) => Err(JsValue::from_str(&e)),
@@ -61,21 +61,21 @@ mod tests {
     wasm_bindgen_test_configure!(run_in_browser);
 
     #[wasm_bindgen_test]
-    fn test_js_witness_generation() {
-        let generator = JsWitnessGenerator::new();
+    fn test_js_inputs_generation() {
+        let generator = ZKInputsGenerator::new();
         let public_key = generator.generator.generate_public_key().unwrap();
-        let result = generator.generate_witness(&public_key, 1);
+        let result = generator.generate_inputs(&public_key, 1);
 
         assert!(result.is_ok());
 
-        let witness = result.unwrap();
+        let inputs = result.unwrap();
 
         // Convert JsValue to string for testing
-        let witness_str = js_sys::JSON::stringify(&witness)
+        let inputs_str = js_sys::JSON::stringify(&inputs)
             .unwrap()
             .as_string()
             .unwrap();
-        assert!(witness_str.contains("params"));
-        assert!(witness_str.contains("pk0is"));
+        assert!(inputs_str.contains("params"));
+        assert!(inputs_str.contains("pk0is"));
     }
 }

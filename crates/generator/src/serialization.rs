@@ -1,6 +1,6 @@
-//! Serialization module for crisp witness data
+//! Serialization module for crisp inputs data
 //!
-//! This module handles the serialization of witness data to JSON format.
+//! This module handles the serialization of inputs data to JSON format.
 
 use greco::bounds::GrecoBounds;
 use greco::bounds::GrecoCryptographicParameters;
@@ -9,7 +9,7 @@ use num_bigint::BigInt;
 use serde::Serialize;
 
 #[derive(Serialize)]
-pub struct CrispZKWitness {
+pub struct CrispZKInputs {
     params: serde_json::Value,
     ct0is: Vec<serde_json::Value>,
     ct1is: Vec<serde_json::Value>,
@@ -30,12 +30,12 @@ fn to_string_1d_vec(vec: &[BigInt]) -> Vec<String> {
     vec.iter().map(|x| x.to_string()).collect()
 }
 
-/// Constructs a CrispZKWitness from GRECO bounds and vectors
-pub fn construct_witness(
+/// Constructs a CrispZKInputs from GRECO bounds and vectors
+pub fn construct_inputs(
     crypto_params: &GrecoCryptographicParameters,
     bounds: &GrecoBounds,
     vectors_standard: &GrecoVectors,
-) -> CrispZKWitness {
+) -> CrispZKInputs {
     let mut params_json = serde_json::Map::new();
 
     // Add crypto params
@@ -61,7 +61,7 @@ pub fn construct_witness(
     });
     params_json.insert("bounds".to_string(), bounds_json);
 
-    CrispZKWitness {
+    CrispZKInputs {
         params: serde_json::Value::Object(params_json),
         ct0is: vectors_standard
             .ct0is
@@ -150,7 +150,7 @@ pub fn construct_witness(
     }
 }
 
-/// Serializes a witness to JSON string
-pub fn serialize_witness_to_json(witness: &CrispZKWitness) -> Result<String, String> {
-    serde_json::to_string(witness).map_err(|e| format!("Failed to serialize witness: {}", e))
+/// Serializes a CrispZKInputs to JSON string
+pub fn serialize_inputs_to_json(inputs: &CrispZKInputs) -> Result<String, String> {
+    serde_json::to_string(inputs).map_err(|e| format!("Failed to serialize inputs: {}", e))
 }

@@ -1,11 +1,11 @@
 [package]
-name = "crisp-zk-witness"
+name = "crisp-zk-inputs"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Core ZK witness generation logic"
+description = "Core logic to pre-compute CRISP ZK inputs."
 
 [dependencies]
 fhe = { git = "https://github.com/gnosisguild/fhe.rs", branch = "refactor/pvw-compat" }

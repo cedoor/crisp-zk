@@ -1,16 +1,16 @@
-import { JsWitnessGenerator } from "../crates/js-lib/pkg/crisp_zk.js";
+import { ZKInputsGenerator } from "../crates/js-lib/pkg/crisp_zk.js";
 import { UltraHonkBackend } from '@aztec/bb.js';
 import circuitJson from './crisp-circuit.json' with { type: 'json' };
 import { Noir } from '@noir-lang/noir_js';
 
-const generator = new JsWitnessGenerator();
+const generator = new ZKInputsGenerator();
 const publicKey = await generator.generatePublicKey();
-const proverInputs = await generator.generateWitness(publicKey, 1);
+const inputs = await generator.generateInputs(publicKey, 1);
 
 const noir = new Noir(circuitJson);
 const backend = new UltraHonkBackend(circuitJson.bytecode);
 
-const { witness } = await noir.execute(proverInputs);
+const { witness } = await noir.execute(inputs);
 
 // Measure the time it needs to generate a proof.
 const startTime = performance.now();

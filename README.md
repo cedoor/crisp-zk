@@ -1,13 +1,13 @@
-# Crisp ZK Witness
+# Crisp ZK
 
-A Rust monorepo for CRISP ZK witness generation with JavaScript/WASM bindings.
+A library for generating ZK inputs to create CRISP proofs.
 
 ## Structure
 
 This repository contains two main crates:
 
-- **`generator`**: Core witness generation logic written in Rust.
-- **`js-lib`**: JavaScript library with WASM bindings for the generator.
+- **`generator`**: Core ZK inputs generation logic written in Rust.
+- **`js-lib`**: JavaScript library with WASM bindings for the ZK inputs generator.
 
 ## Prerequisites
 
@@ -46,7 +46,7 @@ cargo test
 ### Run tests for specific crate
 
 ```bash
-cargo test -p crisp-zk-witness
+cargo test -p crisp-zk-inputs
 cargo test -p js-lib
 ```
 
@@ -62,16 +62,16 @@ pnpm test
 ### Rust
 
 ```rust
-use crisp_zk_witness::WitnessGenerator;
+use crisp_zk_inputs::CrispZKInputsGenerator;
 
-let generator = WitnessGenerator::new();
+let generator = CrispZKInputsGenerator::new();
 let public_key = generator.generate_public_key()?;
-let witness = generator.generate_witness(&public_key, 1)?;
+let inputs = generator.generate_inputs(&public_key, 1)?;
 ```
 
 ### JavaScript
 
-The JavaScript library provides WASM bindings for witness generation. Here's how to use it:
+The JavaScript library provides WASM bindings for ZK inputs generation. Here's how to use it:
 
 #### Installation
 
@@ -84,16 +84,16 @@ pnpm install crisp-zk
 #### Basic Usage
 
 ```javascript
-import { JsWitnessGenerator } from "crisp-zk";
+import { ZKInputsGenerator } from "crisp-zk";
 
-// Create a new witness generator instance
-const generator = new JsWitnessGenerator();
+// Create a new ZK inputs generator instance
+const generator = new ZKInputsGenerator();
 
 // Generate a public key
 const publicKey = await generator.generatePublicKey();
 console.log("Public key:", publicKey);
 
-// Generate a witness with the public key and vote (0 or 1)
-const witness = await generator.generateWitness(publicKey, 1);
-console.log("Witness:", witness);
+// Generate ZK inputs with the public key and vote (0 or 1)
+const inputs = await generator.generateInputs(publicKey, 1);
+console.log("ZK inputs:", inputs);
 ```

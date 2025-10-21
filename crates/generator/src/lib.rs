@@ -1,6 +1,6 @@
-//! Core witness generation library
+//! Core crisp inputs generation library
 //!
-//! This crate contains the main logic for generating crisp witnesses.
+//! This crate contains the main logic for generating crisp inputs.
 
 use fhe::bfv::PublicKey;
 use fhe::bfv::SecretKey;
@@ -14,13 +14,13 @@ use rand::SeedableRng;
 use std::sync::Arc;
 
 mod serialization;
-use serialization::{construct_witness, serialize_witness_to_json};
+use serialization::{construct_inputs, serialize_inputs_to_json};
 
-pub struct WitnessGenerator {
+pub struct CrispZKInputsGenerator {
     bfv_params: Arc<BfvParameters>,
 }
 
-impl WitnessGenerator {
+impl CrispZKInputsGenerator {
     pub fn new() -> Self {
         Self::with_defaults()
     }
@@ -43,7 +43,7 @@ impl WitnessGenerator {
         Self::with_params(degree, plaintext_modulus, &moduli)
     }
 
-    pub fn generate_witness(&self, public_key: &str, vote: u8) -> Result<String, String> {
+    pub fn generate_inputs(&self, public_key: &str, vote: u8) -> Result<String, String> {
         let (crypto_params, bounds) = GrecoBounds::compute(&self.bfv_params, 0)
             .map_err(|e| format!("Failed to compute bounds: {}", e))?;
 
@@ -75,9 +75,9 @@ impl WitnessGenerator {
                 .map_err(|e| format!("Failed to compute vectors: {}", e))?;
 
         let vectors_standard = vectors.standard_form();
+        let inputs = construct_inputs(&crypto_params, &bounds, &vectors_standard);
 
-        let witness = construct_witness(&crypto_params, &bounds, &vectors_standard);
-        serialize_witness_to_json(&witness)
+        serialize_inputs_to_json(&inputs)
     }
 
     pub fn generate_public_key(&self) -> Result<String, String> {
@@ -100,12 +100,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_witness_generation_with_defaults() {
-        let generator = WitnessGenerator::new();
+    fn test_inputs_generation_with_defaults() {
+        let generator = CrispZKInputsGenerator::new();
         let public_key = generator
             .generate_public_key()
             .expect("failed to generate public key");
-        let result = generator.generate_witness(&public_key, 1);
+        let result = generator.generate_inputs(&public_key, 1);
 
         assert!(result.is_ok());
         let json_output = result.unwrap();
@@ -116,12 +116,12 @@ mod tests {
     }
 
     #[test]
-    fn test_witness_generation_with_custom_params() {
-        let generator = WitnessGenerator::with_params(2048, 1032193, &[0x3FFFFFFF000001]);
+    fn test_inputs_generation_with_custom_params() {
+        let generator = CrispZKInputsGenerator::with_params(2048, 1032193, &[0x3FFFFFFF000001]);
         let public_key = generator
             .generate_public_key()
             .expect("failed to generate public key");
-        let result = generator.generate_witness(&public_key, 1);
+        let result = generator.generate_inputs(&public_key, 1);
 
         assert!(result.is_ok());
         let json_output = result.unwrap();
@@ -132,12 +132,12 @@ mod tests {
     }
 
     #[test]
-    fn test_witness_generation_with_vote_0() {
-        let generator = WitnessGenerator::new();
+    fn test_inputs_generation_with_vote_0() {
+        let generator = CrispZKInputsGenerator::new();
         let public_key = generator
             .generate_public_key()
             .expect("failed to generate public key");
-        let result = generator.generate_witness(&public_key, 0);
+        let result = generator.generate_inputs(&public_key, 0);
 
         assert!(result.is_ok());
         let json_output = result.unwrap();
@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn test_get_bfv_params() {
-        let generator = WitnessGenerator::new();
+        let generator = CrispZKInputsGenerator::new();
         let bfv_params = generator.get_bfv_params();
 
         assert!(bfv_params.degree() == 2048);
