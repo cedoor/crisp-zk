@@ -2,6 +2,7 @@
 //!
 //! This module handles the serialization of inputs data to JSON format.
 
+use crate::ciphertext_addition_vectors::CiphertextAdditionVectors;
 use greco::bounds::GrecoBounds;
 use greco::bounds::GrecoCryptographicParameters;
 use greco::vectors::GrecoVectors;
@@ -10,6 +11,7 @@ use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct CrispZKInputs {
+    ciphertext_addition_params: serde_json::Value,
     params: serde_json::Value,
     ct0is: Vec<serde_json::Value>,
     ct1is: Vec<serde_json::Value>,
@@ -35,6 +37,7 @@ pub fn construct_inputs(
     crypto_params: &GrecoCryptographicParameters,
     bounds: &GrecoBounds,
     vectors_standard: &GrecoVectors,
+    ciphertext_addition_vectors_standard: &CiphertextAdditionVectors,
 ) -> CrispZKInputs {
     let mut params_json = serde_json::Map::new();
 
@@ -61,7 +64,82 @@ pub fn construct_inputs(
     });
     params_json.insert("bounds".to_string(), bounds_json);
 
+    let mut ciphertext_addition_params_json = serde_json::Map::new();
+    ciphertext_addition_params_json.insert(
+        "old_ct0is".to_string(),
+        ciphertext_addition_vectors_standard
+            .old_ct0is
+            .iter()
+            .map(|v| {
+                serde_json::json!({
+                    "coefficients": to_string_1d_vec(v)
+                })
+            })
+            .collect(),
+    );
+    ciphertext_addition_params_json.insert(
+        "old_ct1is".to_string(),
+        ciphertext_addition_vectors_standard
+            .old_ct1is
+            .iter()
+            .map(|v| {
+                serde_json::json!({
+                    "coefficients": to_string_1d_vec(v)
+                })
+            })
+            .collect(),
+    );
+    ciphertext_addition_params_json.insert(
+        "sum_ct0is".to_string(),
+        ciphertext_addition_vectors_standard
+            .sum_ct0is
+            .iter()
+            .map(|v| {
+                serde_json::json!({
+                    "coefficients": to_string_1d_vec(v)
+                })
+            })
+            .collect(),
+    );
+    ciphertext_addition_params_json.insert(
+        "sum_ct1is".to_string(),
+        ciphertext_addition_vectors_standard
+            .sum_ct1is
+            .iter()
+            .map(|v| {
+                serde_json::json!({
+                    "coefficients": to_string_1d_vec(v)
+                })
+            })
+            .collect(),
+    );
+    ciphertext_addition_params_json.insert(
+        "sum_r0is".to_string(),
+        ciphertext_addition_vectors_standard
+            .sum_r0is
+            .iter()
+            .map(|v| {
+                serde_json::json!({
+                    "coefficients": to_string_1d_vec(v)
+                })
+            })
+            .collect(),
+    );
+    ciphertext_addition_params_json.insert(
+        "sum_r1is".to_string(),
+        ciphertext_addition_vectors_standard
+            .sum_r1is
+            .iter()
+            .map(|v| {
+                serde_json::json!({
+                    "coefficients": to_string_1d_vec(v)
+                })
+            })
+            .collect(),
+    );
+
     CrispZKInputs {
+        ciphertext_addition_params: serde_json::Value::Object(ciphertext_addition_params_json),
         params: serde_json::Value::Object(params_json),
         ct0is: vectors_standard
             .ct0is

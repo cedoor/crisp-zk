@@ -24,8 +24,16 @@ impl ZKInputsGenerator {
 
     /// Generate a crisp inputs from JavaScript
     #[wasm_bindgen(js_name = "generateInputs")]
-    pub fn generate_inputs(&self, public_key: &str, vote: u8) -> Result<JsValue, JsValue> {
-        match self.generator.generate_inputs(public_key, vote) {
+    pub fn generate_inputs(
+        &self,
+        old_ciphertext: &str,
+        public_key: &str,
+        vote: u8,
+    ) -> Result<JsValue, JsValue> {
+        match self
+            .generator
+            .generate_inputs(old_ciphertext, public_key, vote)
+        {
             Ok(inputs_json) => {
                 // Parse the JSON string and return as JsValue
                 match js_sys::JSON::parse(&inputs_json) {
@@ -46,7 +54,16 @@ impl ZKInputsGenerator {
         }
     }
 
-    /// Get the version of the library
+    /// Encrypt a vote from JavaScript
+    #[wasm_bindgen(js_name = "encryptVote")]
+    pub fn encrypt_vote(&self, public_key: &str, vote: u8) -> Result<String, JsValue> {
+        match self.generator.encrypt_vote(public_key, vote) {
+            Ok(ciphertext) => Ok(ciphertext),
+            Err(e) => Err(JsValue::from_str(&e)),
+        }
+    }
+
+    /// Get the version of the library.
     #[wasm_bindgen]
     pub fn version() -> String {
         env!("CARGO_PKG_VERSION").to_string()
@@ -63,8 +80,9 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_js_inputs_generation() {
         let generator = ZKInputsGenerator::new();
-        let public_key = generator.generator.generate_public_key().unwrap();
-        let result = generator.generate_inputs(&public_key, 1);
+        let public_key = generator.generate_public_key().unwrap();
+        let old_ciphertext = generator.encrypt_vote(&public_key, 1).unwrap();
+        let result = generator.generate_inputs(&old_ciphertext, &public_key, 1);
 
         assert!(result.is_ok());
 

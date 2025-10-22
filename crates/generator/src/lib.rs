@@ -2,6 +2,7 @@
 //!
 //! This crate contains the main logic for generating crisp inputs.
 
+use fhe::bfv::Ciphertext;
 use fhe::bfv::PublicKey;
 use fhe::bfv::SecretKey;
 use fhe::bfv::{BfvParameters, BfvParametersBuilder};
@@ -12,6 +13,9 @@ use greco::vectors::GrecoVectors;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use std::sync::Arc;
+
+mod ciphertext_addition_vectors;
+use crate::ciphertext_addition_vectors::CiphertextAdditionVectors;
 
 mod serialization;
 use serialization::{construct_inputs, serialize_inputs_to_json};
@@ -43,7 +47,12 @@ impl CrispZKInputsGenerator {
         Self::with_params(degree, plaintext_modulus, &moduli)
     }
 
-    pub fn generate_inputs(&self, public_key: &str, vote: u8) -> Result<String, String> {
+    pub fn generate_inputs(
+        &self,
+        old_ciphertext: &str,
+        public_key: &str,
+        vote: u8,
+    ) -> Result<String, String> {
         let (crypto_params, bounds) = GrecoBounds::compute(&self.bfv_params, 0)
             .map_err(|e| format!("Failed to compute bounds: {}", e))?;
 
@@ -55,29 +64,72 @@ impl CrispZKInputsGenerator {
         .map_err(|e| format!("Failed to deserialize public key: {}", e))?;
 
         // Create a sample plaintext consistent with the GRECO sample generator
-        // All coefficients are 3, and the first coefficient represents the vote
-        let mut rng = StdRng::seed_from_u64(0);
+        // All coefficients are 3, and the first coefficient represents the vote.
         let mut message_data = vec![3u64; self.bfv_params.degree()];
+        // Set vote value (0 or 1) in the first coefficient
+        message_data[0] = if vote == 1 { 1 } else { 0 };
 
+        // Encode the plaintext into a polynomial.
+        let pt = Plaintext::try_encode(&message_data, Encoding::poly(), &self.bfv_params)
+            .map_err(|e| format!("Failed to encode plaintext: {}", e))?;
+
+        // Encrypt using the provided public key to ensure ciphertext matches the key.
+        let mut rng = StdRng::seed_from_u64(0);
+        let (ct, u_rns, e0_rns, e1_rns) = pk
+            .try_encrypt_extended(&pt, &mut rng)
+            .map_err(|e| format!("Failed to encrypt plaintext: {}", e))?;
+
+        // Compute the vectors of the Greco inputs.
+        let greco_vectors =
+            GrecoVectors::compute(&pt, &u_rns, &e0_rns, &e1_rns, &ct, &pk, &self.bfv_params)
+                .map_err(|e| format!("Failed to compute vectors: {}", e))?;
+
+        // Deserialize the old ciphertext.
+        let old_ct = Ciphertext::from_bytes(
+            &hex::decode(old_ciphertext)
+                .map_err(|e| format!("Failed to decode old ciphertext: {}", e))?,
+            &self.bfv_params,
+        )
+        .map_err(|e| format!("Failed to deserialize old ciphertext: {}", e))?;
+
+        // Compute the cyphertext addition.
+        let sum_ct = &ct + &old_ct;
+
+        // Compute the vectors of the ciphertext addition inputs.
+        let ciphertext_addition_vectors =
+            CiphertextAdditionVectors::compute(&pt, &old_ct, &ct, &sum_ct, &self.bfv_params)
+                .map_err(|e| format!("Failed to compute ciphertext addition vectors: {}", e))?;
+
+        let inputs = construct_inputs(
+            &crypto_params,
+            &bounds,
+            &greco_vectors.standard_form(),
+            &ciphertext_addition_vectors.standard_form(),
+        );
+
+        Ok(serialize_inputs_to_json(&inputs)?)
+    }
+
+    pub fn encrypt_vote(&self, public_key: &str, vote: u8) -> Result<String, String> {
+        let pk = PublicKey::from_bytes(
+            &hex::decode(public_key).map_err(|e| format!("Failed to decode public key: {}", e))?,
+            &self.bfv_params,
+        )
+        .map_err(|e| format!("Failed to deserialize public key: {}", e))?;
+
+        let mut message_data = vec![3u64; self.bfv_params.degree()];
         // Set vote value (0 or 1) in the first coefficient
         message_data[0] = if vote == 1 { 1 } else { 0 };
 
         let pt = Plaintext::try_encode(&message_data, Encoding::poly(), &self.bfv_params)
             .map_err(|e| format!("Failed to encode plaintext: {}", e))?;
 
-        // Encrypt using the provided public key to ensure ciphertext matches the key
-        let (ct, u_rns, e0_rns, e1_rns) = pk
+        let mut rng = StdRng::seed_from_u64(0);
+        let (ct, _u_rns, _e0_rns, _e1_rns) = pk
             .try_encrypt_extended(&pt, &mut rng)
             .map_err(|e| format!("Failed to encrypt plaintext: {}", e))?;
 
-        let vectors =
-            GrecoVectors::compute(&pt, &u_rns, &e0_rns, &e1_rns, &ct, &pk, &self.bfv_params)
-                .map_err(|e| format!("Failed to compute vectors: {}", e))?;
-
-        let vectors_standard = vectors.standard_form();
-        let inputs = construct_inputs(&crypto_params, &bounds, &vectors_standard);
-
-        serialize_inputs_to_json(&inputs)
+        Ok(hex::encode(ct.to_bytes()))
     }
 
     pub fn generate_public_key(&self) -> Result<String, String> {
@@ -105,7 +157,10 @@ mod tests {
         let public_key = generator
             .generate_public_key()
             .expect("failed to generate public key");
-        let result = generator.generate_inputs(&public_key, 1);
+        let old_ciphertext = generator
+            .encrypt_vote(&public_key, 1)
+            .expect("failed to generate old ciphertext");
+        let result = generator.generate_inputs(&old_ciphertext, &public_key, 0);
 
         assert!(result.is_ok());
         let json_output = result.unwrap();
@@ -121,7 +176,10 @@ mod tests {
         let public_key = generator
             .generate_public_key()
             .expect("failed to generate public key");
-        let result = generator.generate_inputs(&public_key, 1);
+        let old_ciphertext = generator
+            .encrypt_vote(&public_key, 0)
+            .expect("failed to generate old ciphertext");
+        let result = generator.generate_inputs(&old_ciphertext, &public_key, 1);
 
         assert!(result.is_ok());
         let json_output = result.unwrap();
@@ -137,7 +195,10 @@ mod tests {
         let public_key = generator
             .generate_public_key()
             .expect("failed to generate public key");
-        let result = generator.generate_inputs(&public_key, 0);
+        let old_ciphertext = generator
+            .encrypt_vote(&public_key, 0)
+            .expect("failed to generate old ciphertext");
+        let result = generator.generate_inputs(&old_ciphertext, &public_key, 1);
 
         assert!(result.is_ok());
         let json_output = result.unwrap();
