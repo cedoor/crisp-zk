@@ -31,7 +31,7 @@ cargo build
 ### Build the JavaScript library with WASM bindings
 
 ```bash
-cd js-scripts
+cd scripts
 pnpm build
 ```
 
@@ -47,13 +47,13 @@ cargo test
 
 ```bash
 cargo test -p crisp-zk-inputs
-cargo test -p js-lib
+cargo test -p crisp-zk
 ```
 
 ### Run tests for the final JS bundle
 
 ```bash
-cd js-scripts
+cd scripts
 pnpm test
 ```
 
@@ -66,7 +66,8 @@ use crisp_zk_inputs::CrispZKInputsGenerator;
 
 let generator = CrispZKInputsGenerator::new();
 let public_key = generator.generate_public_key()?;
-let inputs = generator.generate_inputs(&public_key, 1)?;
+let old_ciphertext = generator.encrypt_vote(&public_key, 0)?;
+let inputs = generator.generate_inputs(&old_ciphertext, &public_key, 1)?;
 ```
 
 ### JavaScript
@@ -93,7 +94,11 @@ const generator = new ZKInputsGenerator();
 const publicKey = await generator.generatePublicKey();
 console.log("Public key:", publicKey);
 
-// Generate ZK inputs with the public key and vote (0 or 1)
-const inputs = await generator.generateInputs(publicKey, 1);
+// Encrypt a vote to create an old ciphertext
+const oldCiphertext = await generator.encryptVote(publicKey, 0);
+console.log("Old ciphertext:", oldCiphertext);
+
+// Generate ZK inputs with the old ciphertext, public key, and new vote (0 or 1)
+const inputs = await generator.generateInputs(oldCiphertext, publicKey, 1);
 console.log("ZK inputs:", inputs);
 ```
