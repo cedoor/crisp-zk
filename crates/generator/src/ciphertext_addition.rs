@@ -10,26 +10,28 @@ use rayon::iter::{ParallelBridge, ParallelIterator};
 use shared::constants::get_zkp_modulus;
 use std::sync::Arc;
 
-/// Set of vectors for input validation of a ciphertext addition.
+/// Set of parameters for input validation of a ciphertext addition.
 #[derive(Clone, Debug)]
-pub struct CiphertextAdditionVectors {
+pub struct CiphertextAdditionParams {
     pub old_ct0is: Vec<Vec<BigInt>>,
     pub old_ct1is: Vec<Vec<BigInt>>,
     pub sum_ct0is: Vec<Vec<BigInt>>,
     pub sum_ct1is: Vec<Vec<BigInt>>,
     pub sum_r0is: Vec<Vec<BigInt>>,
     pub sum_r1is: Vec<Vec<BigInt>>,
+    pub r_bound: u64,
 }
 
-impl CiphertextAdditionVectors {
+impl CiphertextAdditionParams {
     pub fn new(num_moduli: usize, degree: usize) -> Self {
-        CiphertextAdditionVectors {
+        CiphertextAdditionParams {
             old_ct0is: vec![vec![BigInt::zero(); degree]; num_moduli],
             old_ct1is: vec![vec![BigInt::zero(); degree]; num_moduli],
             sum_ct0is: vec![vec![BigInt::zero(); degree]; num_moduli],
             sum_ct1is: vec![vec![BigInt::zero(); degree]; num_moduli],
             sum_r0is: vec![vec![BigInt::zero(); degree]; num_moduli],
             sum_r1is: vec![vec![BigInt::zero(); degree]; num_moduli],
+            r_bound: 0,
         }
     }
 
@@ -39,7 +41,7 @@ impl CiphertextAdditionVectors {
         new_ct: &Ciphertext,
         sum_ct: &Ciphertext,
         params: &BfvParameters,
-    ) -> Result<CiphertextAdditionVectors, String> {
+    ) -> Result<CiphertextAdditionParams, String> {
         let ctx: &Arc<fhe_math::rq::Context> = params
             .ctx_at_level(pt.level())
             .map_err(|e| format!("Failed to get context at level: {}", e))?;
@@ -62,7 +64,11 @@ impl CiphertextAdditionVectors {
         sum_ct1.change_representation(Representation::PowerBasis);
 
         // Initialize matrices to store results.
-        let mut res = CiphertextAdditionVectors::new(params.moduli().len(), n as usize);
+        let mut res = CiphertextAdditionParams::new(params.moduli().len(), n as usize);
+
+        // For M=2 (adding two ciphertexts), each coefficient of the quotient polynomial
+        // must be in {-1, 0, 1}, so the bound is 1 for all CRT moduli
+        let r_bound = 1u64;
 
         let old_ct0_coeffs = old_ct0.coefficients();
         let old_ct1_coeffs = old_ct1.coefficients();
@@ -174,18 +180,22 @@ impl CiphertextAdditionVectors {
             res.sum_r1is[i] = sum_r1i;
         }
 
+        // Set the bound for the quotient polynomials
+        res.r_bound = r_bound;
+
         Ok(res)
     }
 
     pub fn standard_form(&self) -> Self {
         let zkp_modulus = &get_zkp_modulus();
-        CiphertextAdditionVectors {
+        CiphertextAdditionParams {
             old_ct0is: reduce_coefficients_2d(&self.old_ct0is, zkp_modulus),
             old_ct1is: reduce_coefficients_2d(&self.old_ct1is, zkp_modulus),
             sum_ct0is: reduce_coefficients_2d(&self.sum_ct0is, zkp_modulus),
             sum_ct1is: reduce_coefficients_2d(&self.sum_ct1is, zkp_modulus),
             sum_r0is: reduce_coefficients_2d(&self.sum_r0is, zkp_modulus),
             sum_r1is: reduce_coefficients_2d(&self.sum_r1is, zkp_modulus),
+            r_bound: self.r_bound,
         }
     }
 }

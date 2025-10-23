@@ -14,8 +14,8 @@ use rand::rngs::StdRng;
 use rand::SeedableRng;
 use std::sync::Arc;
 
-mod ciphertext_addition_vectors;
-use crate::ciphertext_addition_vectors::CiphertextAdditionVectors;
+mod ciphertext_addition;
+use crate::ciphertext_addition::CiphertextAdditionParams;
 
 mod serialization;
 use serialization::{construct_inputs, serialize_inputs_to_json};
@@ -53,9 +53,6 @@ impl CrispZKInputsGenerator {
         public_key: &str,
         vote: u8,
     ) -> Result<String, String> {
-        let (crypto_params, bounds) = GrecoBounds::compute(&self.bfv_params, 0)
-            .map_err(|e| format!("Failed to compute bounds: {}", e))?;
-
         // Deserialize the provided public key
         let pk = PublicKey::from_bytes(
             &hex::decode(public_key).map_err(|e| format!("Failed to decode public key: {}", e))?,
@@ -84,6 +81,11 @@ impl CrispZKInputsGenerator {
             GrecoVectors::compute(&pt, &u_rns, &e0_rns, &e1_rns, &ct, &pk, &self.bfv_params)
                 .map_err(|e| format!("Failed to compute vectors: {}", e))?;
 
+        let (crypto_params, bounds) = GrecoBounds::compute(&self.bfv_params, 0)
+            .map_err(|e| format!("Failed to compute bounds: {}", e))?;
+
+        // #########################################  Ciphertext Addition ################################################
+
         // Deserialize the old ciphertext.
         let old_ct = Ciphertext::from_bytes(
             &hex::decode(old_ciphertext)
@@ -97,8 +99,10 @@ impl CrispZKInputsGenerator {
 
         // Compute the vectors of the ciphertext addition inputs.
         let ciphertext_addition_vectors =
-            CiphertextAdditionVectors::compute(&pt, &old_ct, &ct, &sum_ct, &self.bfv_params)
+            CiphertextAdditionParams::compute(&pt, &old_ct, &ct, &sum_ct, &self.bfv_params)
                 .map_err(|e| format!("Failed to compute ciphertext addition vectors: {}", e))?;
+
+        // #########################################  Construct Inputs ################################################
 
         let inputs = construct_inputs(
             &crypto_params,
